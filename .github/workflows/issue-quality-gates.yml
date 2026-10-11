@@ -1,0 +1,65 @@
+name: Issue quality gates
+run-name: Issue 913 quality gates
+
+# This branch belongs to the contributor fork; the change under review is checked out below.
+on:
+  push:
+    branches: [codex/issue-loop-ci]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue-quality-gates-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  VERIFY_COMMIT: 7a3d00319493c05b215a91bc96a46528bb97fc69
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_RELEASE_LTO: "false"
+  CARGO_BUILD_JOBS: "2"
+  RAYON_NUM_THREADS: "2"
+  RUST_TEST_THREADS: "2"
+
+jobs:
+  quality:
+    name: Format, clippy, regression tests, layers, assets, wasm
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.VERIFY_COMMIT }}
+      - name: Verify checkout
+        run: test "$(git rev-parse HEAD)" = "$VERIFY_COMMIT"
+      - name: Install native dependencies and test oracles
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev \
+            libgl1-mesa-dev libasound2-dev libgtk-3-dev ffmpeg
+      - name: Limit build jobs to runner capacity
+        shell: bash
+        run: |
+          jobs=$(nproc)
+          if (( jobs > 4 )); then jobs=4; fi
+          echo "CARGO_BUILD_JOBS=$jobs" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with:
+          toolchain: "1.99.0"
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: filmcraft-issue-quality-gates
+      # Full workspace tests run locally before each issue commit. On Linux, run the
+      # affected crate suites and check all targets and the remaining workspace gates.
+      - name: Checks and regression suites for the issue commit
+        run: |
+          cargo fmt --check
+          cargo clippy --workspace --all-targets --release -- -D warnings
+          cargo test --release -p filmcraft-engine -p filmcraft-project -p filmcraft-tts-text
+          cargo xtask layers
+          cargo xtask assets
+          cargo xtask wasm

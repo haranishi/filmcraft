@@ -40,7 +40,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev \
-            libgl1-mesa-dev libasound2-dev libgtk-3-dev ffmpeg
+            libgl1-mesa-dev libasound2-dev libgtk-3-dev ffmpeg fonts-noto-cjk
       # Executables are external test oracles only; they are not linked or shipped.
       - name: Install APV-capable test oracles
         shell: bash

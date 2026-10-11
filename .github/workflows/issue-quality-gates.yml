@@ -1,5 +1,5 @@
 name: Issue quality gates
-run-name: Issue 967 quality gates
+run-name: Issue 1143 quality gates
 
 # This branch belongs to the contributor fork; the change under review is checked out below.
 on:
@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  VERIFY_COMMIT: 1170afe6a640735842aa9755211410f3d187d80c
+  VERIFY_COMMIT: 9a3e7d38edb4f99b93e6dd873ed6aa0c5b30cf3b
   FFMPEG_TEST_ORACLE_URL: https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-11-13-04/ffmpeg-n8.1.3-17-gc389840894-linux64-gpl-8.1.tar.xz
   FFMPEG_TEST_ORACLE_SHA256: 3bd8a8427ab6b20d8e27bec92a038f605d8b25f393469a58e1aa4b453019b368
   CARGO_TERM_COLOR: always
@@ -78,7 +78,7 @@ jobs:
           cargo fmt --check
           cargo clippy --workspace --all-targets --release -- -D warnings
           cargo test --release -p filmcraft-engine -p filmcraft-project -p filmcraft-tts-text -p filmcraft-audio-dsp
-          cargo test --release -p filmcraft-ui-egui --lib --test keyframes_ui --test masks_ui
+          cargo test --release -p filmcraft-ui-egui --lib --test sequence_ui --test edit_point_menu_ui --test timeline_gap_ui
           cargo xtask layers
           cargo xtask assets
           cargo xtask wasm

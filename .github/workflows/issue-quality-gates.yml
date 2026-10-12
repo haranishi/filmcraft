@@ -1,5 +1,5 @@
 name: Issue quality gates
-run-name: Issue 1158 quality gates
+run-name: Issue 1124 quality gates
 
 # This branch belongs to the contributor fork; the change under review is checked out below.
 on:
@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  VERIFY_COMMIT: b95e76460ad107dd2b1d170e43582a6a210c13db
+  VERIFY_COMMIT: 247464b54a010bf1f697bd267ed3a2295c04b70c
   FFMPEG_TEST_ORACLE_URL: https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-11-13-04/ffmpeg-n8.1.3-17-gc389840894-linux64-gpl-8.1.tar.xz
   FFMPEG_TEST_ORACLE_SHA256: 3bd8a8427ab6b20d8e27bec92a038f605d8b25f393469a58e1aa4b453019b368
   CARGO_TERM_COLOR: always
@@ -78,27 +78,7 @@ jobs:
           cargo fmt --check
           cargo clippy --workspace --all-targets --release -- -D warnings
           cargo test --release -p filmcraft-engine -p filmcraft-project -p filmcraft-export -p filmcraft-tts-text -p filmcraft-audio-dsp
-          cargo test --release -p filmcraft-ui-egui --lib --test export_ui --test export_menu_ui --test interchange_export_ui --test frame_export_ui
+          cargo test --release -p filmcraft-ui-egui --lib --test transitions_ui --test transition_drop_ui --test timeline_trim_ui --test masks_ui --test meters_ui
           cargo xtask layers
           cargo xtask assets
           cargo xtask wasm
-
-  windows-filenames:
-    name: Windows output filename validation
-    runs-on: windows-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          ref: ${{ env.VERIFY_COMMIT }}
-      - name: Verify checkout
-        shell: bash
-        run: test "$(git rev-parse HEAD)" = "$VERIFY_COMMIT"
-      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
-        with:
-          toolchain: 1.99.0
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          key: filmcraft-issue-windows-filenames
-      - name: Validate output filenames and native Windows paths
-        run: cargo test --release -p filmcraft-export filename::tests

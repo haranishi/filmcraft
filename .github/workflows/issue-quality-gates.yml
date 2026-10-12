@@ -1,5 +1,5 @@
 name: Issue quality gates
-run-name: Issue 1191 independent locked track quality gates
+run-name: Issue 1124 locked selection quality gates
 
 # This branch belongs to the contributor fork; the change under review is checked out below.
 on:
@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  VERIFY_COMMIT: 8cd44f205b1f581f3c384a3f323a4725d0d5bf02
+  VERIFY_COMMIT: cd2ccadcdbd3a5559fd6f33e8ba395e30a95b9df
   FFMPEG_TEST_ORACLE_URL: https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-11-13-04/ffmpeg-n8.1.3-17-gc389840894-linux64-gpl-8.1.tar.xz
   FFMPEG_TEST_ORACLE_SHA256: 3bd8a8427ab6b20d8e27bec92a038f605d8b25f393469a58e1aa4b453019b368
   CARGO_TERM_COLOR: always
@@ -79,6 +79,7 @@ jobs:
           cargo clippy --workspace --all-targets --release -- -D warnings
           cargo test --release -p filmcraft-engine -p filmcraft-project -p filmcraft-export -p filmcraft-tts-text -p filmcraft-audio-dsp
           cargo test --release -p filmcraft-ui-egui --lib --test transitions_ui --test transition_drop_ui --test timeline_trim_ui --test timeline_escape_ui --test masks_ui --test meters_ui --test timeline_scroll_ui --test timeline_tabs_ui --test clip_dialogs_ui --test settings_ui
+          cargo test --release -p filmcraft-ui-egui --test scripted cmd_d
           cargo xtask layers
           cargo xtask assets
           cargo xtask wasm

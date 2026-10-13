@@ -13,6 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  FILMCRAFT_REQUIRE_ORACLES: "1"
   CARGO_INCREMENTAL: "0"
   CARGO_PROFILE_RELEASE_LTO: "false"
   CARGO_BUILD_JOBS: "2"
@@ -22,7 +23,7 @@ env:
 jobs:
   quality:
     name: "Issue ${{ matrix.issue }}: fixed source quality gates"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -46,6 +47,12 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev \
             libgl1-mesa-dev libasound2-dev libgtk-3-dev ffmpeg fonts-noto-cjk
+      - name: Require an APV-capable external test oracle
+        shell: bash
+        run: |
+          ffmpeg -version
+          ffprobe -version
+          ffprobe -hide_banner -decoders | awk '$2 == "apv" {found=1} END {exit !found}'
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
         with:
           toolchain: "1.99.0"
@@ -53,7 +60,7 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
-          key: filmcraft-issues-20261013-${{ matrix.issue }}
+          key: filmcraft-issues-20261013-ubuntu26-${{ matrix.issue }}
       - name: Format and workspace lints
         run: |
           cargo fmt --check

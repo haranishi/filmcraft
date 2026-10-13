@@ -1,0 +1,78 @@
+name: FilmCraft issue quality gates 2026-10-13
+run-name: "Issue ${{ github.event.head_commit.message }}"
+
+on:
+  push:
+    branches: [codex/filmcraft-loop-20261013-ci]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: filmcraft-issues-20261013-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_RELEASE_LTO: "false"
+  CARGO_BUILD_JOBS: "2"
+  RAYON_NUM_THREADS: "2"
+  RUST_TEST_THREADS: "2"
+
+jobs:
+  quality:
+    name: "Issue ${{ matrix.issue }}: fixed source quality gates"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - issue: "1163"
+            source: "52668d53b466da6e412a5291e0abbc2850196fe5"
+          - issue: "1563"
+            source: "b4b415742e41268f472454fa91c9f2d42d929b64"
+    env:
+      VERIFY_COMMIT: ${{ matrix.source }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.VERIFY_COMMIT }}
+      - name: Verify source checkout
+        run: test "$(git rev-parse HEAD)" = "$VERIFY_COMMIT"
+      - name: Native test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev \
+            libgl1-mesa-dev libasound2-dev libgtk-3-dev ffmpeg fonts-noto-cjk
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with:
+          toolchain: "1.99.0"
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: filmcraft-issues-20261013-${{ matrix.issue }}
+      - name: Format and workspace lints
+        run: |
+          cargo fmt --check
+          cargo clippy --workspace --all-targets --release -- -D warnings
+      - name: Issue regression suites
+        env:
+          ISSUE_NUMBER: ${{ matrix.issue }}
+        run: |
+          case "$ISSUE_NUMBER" in
+            1163)
+              cargo test --release -p filmcraft-engine --lib
+              cargo test --release -p filmcraft-ui-egui --test keyboard_ui --test timeline_marquee_ui --test timeline_option_drag_ui --test graphics_notice_ui
+              cargo test --release -p filmcraft-media --test tiff_ycbcr
+              ;;
+            1563) cargo test --release -p filmcraft-render ;;
+            *) exit 1 ;;
+          esac
+      - name: Workspace layers, assets and WASM
+        run: |
+          cargo xtask layers
+          cargo xtask assets
+          cargo xtask wasm

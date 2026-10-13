@@ -1,0 +1,94 @@
+name: Issue quality gates
+run-name: Issue 1158 rebased export validation quality gates
+
+# This branch belongs to the contributor fork; the change under review is checked out below.
+on:
+  push:
+    branches: [codex/oss-followup-1173-20261014-ci]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue-quality-gates-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  VERIFY_COMMIT: a104c2413d517479610a3f649c949553ce140056
+  FILMCRAFT_REQUIRE_ORACLES: "1"
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_RELEASE_LTO: "false"
+  CARGO_BUILD_JOBS: "2"
+  RAYON_NUM_THREADS: "2"
+  RUST_TEST_THREADS: "2"
+
+jobs:
+  quality:
+    name: Format, clippy, regression tests, layers, assets, wasm
+    runs-on: ubuntu-26.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.VERIFY_COMMIT }}
+      - name: Verify checkout
+        run: test "$(git rev-parse HEAD)" = "$VERIFY_COMMIT"
+      - name: Install native dependencies and test oracles
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxkbcommon-dev libwayland-dev libx11-dev libxrandr-dev libxi-dev \
+            libgl1-mesa-dev libasound2-dev libgtk-3-dev ffmpeg fonts-noto-cjk
+      - name: Require an APV-capable external test oracle
+        shell: bash
+        run: |
+          ffmpeg -version
+          ffprobe -version
+          ffprobe -hide_banner -decoders | awk '$2 == "apv" {found=1} END {exit !found}'
+      - name: Limit build jobs to runner capacity
+        shell: bash
+        run: |
+          jobs=$(nproc)
+          if (( jobs > 4 )); then jobs=4; fi
+          echo "CARGO_BUILD_JOBS=$jobs" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with:
+          toolchain: "1.99.0"
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: filmcraft-issue-quality-gates
+      # Full workspace tests run locally before each issue commit. On Linux, run the
+      # affected crate suites and check all targets and the remaining workspace gates.
+      - name: Checks and regression suites for the issue commit
+        run: |
+          cargo fmt --check
+          cargo clippy --workspace --all-targets --release -- -D warnings
+          cargo test --release -p filmcraft-engine -p filmcraft-project -p filmcraft-export -p filmcraft-tts-text -p filmcraft-audio-dsp
+          cargo test --release -p filmcraft-ui-egui --lib --test transitions_ui --test transition_drop_ui --test timeline_trim_ui --test timeline_escape_ui --test masks_ui --test meters_ui --test timeline_scroll_ui --test timeline_tabs_ui --test clip_dialogs_ui --test settings_ui --test export_ui --test export_menu_ui --test interchange_export_ui --test frame_export_ui --test graphics_notice_ui --test keyboard_ui --test timeline_marquee_ui --test timeline_option_drag_ui
+          cargo test --release -p filmcraft-media --test tiff_ycbcr
+          cargo xtask layers
+          cargo xtask assets
+          cargo xtask wasm
+
+  windows-filenames:
+    name: Windows output filename validation
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.VERIFY_COMMIT }}
+      - name: Verify checkout
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$VERIFY_COMMIT"
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with:
+          toolchain: 1.99.0
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: filmcraft-issue-windows-filenames
+      - name: Validate output filenames and native Windows paths
+        run: cargo test --release -p filmcraft-export filename::tests

@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
 
-use crate::Session;
+use crate::{EngineError, Session};
 
 #[test]
 fn hostile_export_ranges_are_rejected_without_panicking() {
@@ -865,7 +865,9 @@ fn invalid_movie_output_names_are_rejected_before_jobs_or_queue_entries() {
             let params = json!({"format":"wav","path":path,"wait":true,"captionSidecar":"vtt"});
             let result = s.execute(command, params);
             assert!(result.is_err(), "{command} accepted unsupported filename {path:?}");
-            assert!(result.unwrap_err().to_string().to_ascii_lowercase().contains("file name"));
+            let error = result.unwrap_err();
+            assert!(matches!(&error, EngineError::BadParams { cmd, .. } if cmd == command), "{command} reported {error:?}, not BadParams");
+            assert!(error.to_string().to_ascii_lowercase().contains("file name"));
             assert!(s.jobs.is_empty());
             assert!(s.export_queue.items.is_empty());
             assert!(std::sync::Arc::ptr_eq(&before, &s.project));

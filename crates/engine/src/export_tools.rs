@@ -425,7 +425,7 @@ fn is_folder(x: &str) -> bool {
 
 /// Output path for `seq`: the `path` param (a file, or a directory ending in `/` or existing), else
 /// `<default dir>/<sequence name>.<ext>`; `suffix` distinguishes several items.
-fn output_path(s: &Session, p: &Value, seq: ItemId, settings: &ExportSettings, suffix: Option<usize>) -> Result<String> {
+fn output_path(s: &Session, p: &Value, seq: ItemId, settings: &ExportSettings, suffix: Option<usize>, cmd: &str) -> Result<String> {
     let name = s.project.item(seq).map(|i| i.name.clone()).unwrap_or_else(|| "Sequence".into());
     let base = match str_p(p, "path").map(expand_home) {
         Some(x) if is_folder(&x) => Path::new(&x).join(file_safe(&name)).to_string_lossy().to_string(),
@@ -433,7 +433,7 @@ fn output_path(s: &Session, p: &Value, seq: ItemId, settings: &ExportSettings, s
         None => default_export_dir(s).join(file_safe(&name)).to_string_lossy().to_string(),
     };
     // Validate the supplied name before AIFF or image-sequence extension correction can hide it.
-    filmcraft_export::validate_output_path(&base).map_err(|message| EngineError::Other(message.into()))?;
+    filmcraft_export::validate_output_path(&base).map_err(|message| bad(cmd, message))?;
     let path = with_extension(&base, settings);
     Ok(match suffix {
         Some(n) if n > 0 => match path.rsplit_once('.') {
@@ -544,7 +544,7 @@ pub fn export_media(s: &mut Session, p: &Value) -> Result<Value> {
     }
     let project = s.project.clone();
     settings.range = range_param(s, &project, seq, p.get("range"), p, cmd)?;
-    settings.path = output_path(s, p, seq, &settings, None)?;
+    settings.path = output_path(s, p, seq, &settings, None, cmd)?;
     let wait = bool_p(p, "wait").unwrap_or(false);
     let path = settings.path.clone();
     let id = spawn_export(s, project, seq, settings, format!("Export {}", file_name(&path)), wait)?;
@@ -756,8 +756,7 @@ fn queue_add(s: &mut Session, p: &Value) -> Result<Value> {
             st.range = range_param(s, &project, seq, *r, times, cmd)?;
             // several ranges of one sequence get numbered names; several sequences their own names
             let suffix = if many && (ranges.len() > 1 || str_p(p, "path").is_some_and(|x| !is_folder(&expand_home(x)))) { Some(n) } else { None };
-            st.path = output_path(s, p, seq, &st, suffix)?;
-            filmcraft_export::validate_output_path(&st.path).map_err(|message| bad(cmd, message))?;
+            st.path = output_path(s, p, seq, &st, suffix, cmd)?;
             n += 1;
             items.push((seq, st));
         }
@@ -915,7 +914,7 @@ fn quick(s: &mut Session, p: &Value) -> Result<Value> {
     let (preset, mut settings) = settings_from_params(s, &q, cmd)?;
     let project = s.project.clone();
     settings.range = range_param(s, &project, seq, q.get("range"), &q, cmd)?;
-    settings.path = output_path(s, &q, seq, &settings, None)?;
+    settings.path = output_path(s, &q, seq, &settings, None, cmd)?;
     let wait = bool_p(p, "wait").unwrap_or(false);
     let path = settings.path.clone();
     let id = spawn_export(s, project, seq, settings, format!("Quick Export {}", file_name(&path)), wait)?;
@@ -930,8 +929,7 @@ fn resolve(s: &mut Session, p: &Value) -> Result<Value> {
     let (preset, mut settings) = settings_from_params(s, p, cmd)?;
     let project = s.project.clone();
     settings.range = range_param(s, &project, seq, p.get("range"), p, cmd)?;
-    settings.path = output_path(s, p, seq, &settings, None)?;
-    filmcraft_export::validate_output_path(&settings.path).map_err(|message| bad(cmd, message))?;
+    settings.path = output_path(s, p, seq, &settings, None, cmd)?;
     let q = project.sequence(seq).ok_or(EngineError::NoSequence)?;
     let range = filmcraft_export::export_range(&project, seq, &settings).map_err(|e| EngineError::Other(e.to_string()))?;
     let (w, h, rate, sr) = (q.settings.width, q.settings.height, q.settings.frame_rate, q.settings.sample_rate);

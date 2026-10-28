@@ -716,3 +716,22 @@ fn quick_export_rejects_backslashes_without_replacing_the_folder() {
     }
     d.snapshot("export-quick-invalid-backslash");
 }
+
+#[test]
+fn generated_export_name_is_safe_but_an_invalid_user_draft_is_preserved() {
+    let mut d = Driver::new("generated-filename");
+    let seq = d.app().session.state.active_sequence.unwrap();
+    d.exec("clip.rename", json!({"item": seq.0, "name": "Cut?One:Two"}));
+    d.ok("ui.set", json!({"mode": "export"}));
+    d.frames(4);
+    assert_eq!(d.app().ui.export.file_name, "Cut_One_Two");
+    assert!(!d.has("export.fileName.error"));
+    d.click("export.fileName");
+    d.ok("ui.key", json!({"key": "Cmd+A"}));
+    d.ok("ui.type", json!({"text": "Cut?One:Two"}));
+    d.frames(4);
+    assert_eq!(d.app().ui.export.file_name, "Cut?One:Two");
+    assert!(d.has("export.fileName.error"));
+    assert!(d.app().session.jobs.is_empty());
+    assert!(d.queue().is_empty());
+}

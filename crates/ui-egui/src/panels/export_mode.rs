@@ -188,7 +188,8 @@ pub fn export_params(app: &FilmcraftApp) -> Value {
 fn sync_sequence(app: &mut FilmcraftApp) {
     let Some(seq) = app.session.state.active_sequence else { return };
     if app.ui.export.for_sequence != Some(seq.0) || app.ui.export.file_name.is_empty() {
-        app.ui.export.file_name = app.session.project.item(seq).map(|i| i.name.clone()).unwrap_or_else(|| "Sequence".into());
+        app.ui.export.file_name =
+            app.session.project.item(seq).map(|i| filmcraft_engine::export_tools::file_safe(&i.name)).unwrap_or_else(|| "Sequence".into());
         app.ui.export.for_sequence = Some(seq.0);
     }
     if app.ui.export.location.is_empty() {

@@ -735,3 +735,21 @@ fn generated_export_name_is_safe_but_an_invalid_user_draft_is_preserved() {
     assert!(d.app().session.jobs.is_empty());
     assert!(d.queue().is_empty());
 }
+
+#[test]
+fn generated_export_defaults_preserve_supported_unicode() {
+    let mut d = Driver::new("generated-unicode-filename");
+    let seq = d.app().session.state.active_sequence.unwrap();
+    d.exec("clip.rename", json!({"item": seq.0, "name": "cafe\u{301}-हिन्दी%🎬?*"}));
+    d.ok("ui.set", json!({"mode": "export"}));
+    d.frames(4);
+    assert_eq!(d.app().ui.export.file_name, "cafe\u{301}-हिन्दी%🎬__");
+    assert!(!d.has("export.fileName.error"));
+    d.ok("ui.set", json!({"mode": "edit", "export": {"quickPath": ""}}));
+    d.click("header.quickExport");
+    d.frames(4);
+    assert_eq!(Path::new(&d.app().ui.export.quick_path).file_stem().unwrap().to_str(), Some("cafe\u{301}-हिन्दी%🎬__"));
+    assert!(!d.has("quickExport.path.error"));
+    assert!(d.app().session.jobs.is_empty());
+    assert!(d.queue().is_empty());
+}

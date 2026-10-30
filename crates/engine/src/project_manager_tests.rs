@@ -85,16 +85,22 @@ fn collect_files_copies_used_media_and_opens() {
 
 #[test]
 fn consolidate_trims_to_used_ranges_with_handles() {
-    check_consolidation("a.mov", "b.mov", false);
+    check_consolidation("a.mov", "b.mov", None);
 }
 
 #[cfg(unix)]
 #[test]
 fn consolidate_generated_names_accept_unix_inputs_and_keep_collision_numbering() {
-    check_consolidation("take?:.mov", "take*|.mov", true);
+    check_consolidation("take?:.mov", "take*|.mov", Some("take__"));
 }
 
-fn check_consolidation(a_name: &str, b_name: &str, check_generated_names: bool) {
+#[cfg(unix)]
+#[test]
+fn consolidate_generated_names_preserve_unicode_and_collision_numbering() {
+    check_consolidation("cafe\u{301}-हिन्दी%🎬?.mov", "cafe\u{301}-हिन्दी%🎬*.mov", Some("cafe\u{301}-हिन्दी%🎬_"));
+}
+
+fn check_consolidation(a_name: &str, b_name: &str, generated_stem: Option<&str>) {
     let root = tmp_dir("pm-consolidate");
     let (mut s, items, _) = project_named(&root, a_name, b_name);
     let sources = [root.join("Media").join(a_name), root.join("Media").join(b_name)];
@@ -102,8 +108,8 @@ fn check_consolidation(a_name: &str, b_name: &str, check_generated_names: bool) 
     let frames = [0i64, 5, 11, 12, 20, 35];
     let before: Vec<Vec<u8>> = frames.iter().map(|f| frame_rgba(&mut s, *f, 1.0).2).collect();
     let dest = root.join("Consolidated");
-    let existing = dest.join("take__.mov");
-    if check_generated_names {
+    let existing = dest.join(format!("{}.mov", generated_stem.unwrap_or("existing")));
+    if generated_stem.is_some() {
         std::fs::create_dir_all(&dest).unwrap();
         std::fs::write(&existing, b"existing output must survive").unwrap();
     }
@@ -120,14 +126,14 @@ fn check_consolidation(a_name: &str, b_name: &str, check_generated_names: bool) 
     assert!(r["resultBytes"].as_u64().unwrap() > 0);
     let jobs = s.execute("jobs.list", json!({})).unwrap();
     assert!(jobs[0]["result"].get("error").is_none(), "{jobs}");
-    if check_generated_names {
+    if let Some(stem) = generated_stem {
         let outputs: std::collections::BTreeSet<_> = r["files"]
             .as_array()
             .unwrap()
             .iter()
             .map(|f| std::path::Path::new(f["to"].as_str().unwrap()).file_name().unwrap().to_string_lossy().into_owned())
             .collect();
-        assert_eq!(outputs, ["take__ 2.mov".to_owned(), "take__ 3.mov".to_owned()].into());
+        assert_eq!(outputs, [format!("{stem} 2.mov"), format!("{stem} 3.mov")].into());
         assert_eq!(std::fs::read(&existing).unwrap(), b"existing output must survive");
     }
     for (path, bytes) in sources.iter().zip(&original) {

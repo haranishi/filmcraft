@@ -230,6 +230,18 @@ fn proxy_generated_names_accept_unix_input_without_changing_source_or_picture() 
 }
 
 #[test]
+fn ingest_generated_names_preserve_unicode_and_collision_numbering() {
+    let names = check_ingest_collision_named("transcode", "cafe\u{301}-हिन्दी%🎬.mov", "cafe\u{301}-हिन्दी%🎬.mov");
+    assert_eq!(names, ["cafe\u{301}-हिन्दी%🎬 2.mov".to_owned(), "cafe\u{301}-हिन्दी%🎬 3.mov".to_owned()].into());
+}
+
+#[test]
+fn proxy_generated_names_preserve_unicode_and_collision_numbering() {
+    let names = check_ingest_collision_named("copyAndCreateProxies", "cafe\u{301}-हिन्दी%🎬.mov", "cafe\u{301}-हिन्दी%🎬.mov");
+    assert_eq!(names, ["cafe\u{301}-हिन्दी%🎬 2_Proxy.mov".to_owned(), "cafe\u{301}-हिन्दी%🎬 3_Proxy.mov".to_owned()].into());
+}
+
+#[test]
 fn ingest_copy_preserves_same_named_takes_and_existing_files() {
     check_ingest_collision("copy");
 }

@@ -11,11 +11,25 @@ use crate::{EngineError, Session};
 
 #[test]
 fn project_names_become_one_export_filename_component() {
-    for name in ["../../outside", "/absolute/path", r"C:\\outside", ".."] {
+    for name in ["", " ", ".", "..", "../../outside", "/absolute/path", r"C:\\outside"] {
         let safe = crate::export_tools::file_safe(name);
         assert!(!safe.contains(['/', '\\']), "{name:?} became {safe:?}");
         assert_ne!(safe, ".");
         assert_ne!(safe, "..");
+    }
+}
+
+#[test]
+fn generated_names_preserve_supported_unicode_and_punctuation() {
+    for name in ["cafe\u{301}", "हिन्दी", "العَرَبِيَّة", "映像 🎬", "take #1 + 100% [final]", "l’été; =v2@home!"] {
+        assert!(filmcraft_export::validate_output_filename(name).is_ok(), "{name:?}");
+        assert_eq!(crate::export_tools::file_safe(name), name, "supported characters must retain their exact spelling");
+    }
+    for character in r#"<>:"/\|?*"#.chars().chain('\0'..='\u{1f}') {
+        let name = format!("cafe\u{301}{character}हिन्दी");
+        let safe = crate::export_tools::file_safe(&name);
+        assert_eq!(safe, "cafe\u{301}_हिन्दी", "{character:?}");
+        assert!(filmcraft_export::validate_output_filename(&safe).is_ok());
     }
 }
 

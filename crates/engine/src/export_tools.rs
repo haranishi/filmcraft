@@ -390,7 +390,9 @@ pub fn default_export_dir(s: &Session) -> PathBuf {
 
 /// Convert project-derived display text into exactly one safe output filename component.
 pub fn file_safe(n: &str) -> String {
-    let s: String = n.chars().map(|c| if c.is_alphanumeric() || " -_().".contains(c) { c } else { '_' }).collect();
+    // Match export's filename validator: supported punctuation and Unicode (including
+    // combining marks) retain their spelling; only forbidden characters are replaced.
+    let s: String = n.chars().map(|c| if c < '\u{20}' || r#"<>:"/\|?*"#.contains(c) { '_' } else { c }).collect();
     let s = s.trim().to_string();
     if s.is_empty() || matches!(s.as_str(), "." | "..") { "Export".into() } else { s }
 }
